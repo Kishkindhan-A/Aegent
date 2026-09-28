@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     app_version: str = '0.1.0'
     app_env: str = 'development'
     database_url: str = 'postgresql+psycopg://username:password@localhost:5432/aegent'
+    jwt_secret_key: str = ''
+    jwt_algorithm: str = 'HS256'
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
+    password_min_length: int = 8
+    password_max_length: int = 128
 
 
 @lru_cache
