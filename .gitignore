@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+venv/
+.venv/
+ENV/
+env/
+.pytest_cache/
+.pytype/
+coverage/
+build/
+dist/
+*.egg-info/
+*.eggs/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/.cache/
+
+# VS Code
+.vscode/*
+!.vscode/mcp.json
+
+# OS
+.DS_Store
+Thumbs.db
