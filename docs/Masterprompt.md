@@ -1510,3 +1510,110 @@ Do not implement authentication.
 Do not implement agents yet.
 
 Stop after Phase 1 and wait for my confirmation.
+==================================================
+UI RESEARCH + BROWSER TESTING MCP POLICY
+==================================================
+
+Aegent has access to:
+
+1. Inspo MCP
+2. Playwright MCP
+
+INSPО MCP PURPOSE
+Use Inspo MCP for frontend/UI design research only.
+
+Before implementing an important frontend interface:
+- research several relevant enterprise UI references
+- study layout, hierarchy, navigation, tables, filters, states,
+  dashboards, forms, and interaction patterns
+- extract useful design principles
+- do not copy any reference pixel-for-pixel
+- adapt findings to Aegent's own cybersecurity design system
+
+Relevant interfaces include:
+- security dashboard
+- agent inventory
+- agent detail
+- risk/event explorer
+- policy management
+- approval queue
+- audit logs
+- organization settings
+- team/user management
+- authentication screens
+- billing screens
+- legal/lifecycle pages
+- empty/error/loading states
+
+Do NOT use Inspo MCP for:
+- backend architecture
+- database modeling
+- migrations
+- authentication logic
+- security decisions
+- risk engine logic
+- API implementation
+
+PLAYWRIGHT MCP PURPOSE
+Use Playwright MCP for browser-level frontend testing and UI validation.
+
+After implementing a frontend feature:
+- open the application in the browser
+- test navigation
+- interact with forms/buttons/menus/modals
+- inspect visual layout
+- check responsive behavior
+- identify broken UI states
+- identify missing components
+- detect navigation failures
+- identify runtime/browser errors where visible
+- verify loading, empty, success, and error states
+- verify important user journeys
+
+When a UI bug is found:
+1. reproduce it
+2. identify the likely source
+3. implement the smallest appropriate fix
+4. rerun the affected Playwright flow
+5. verify the bug is resolved
+
+Playwright MCP must not be treated as a replacement for:
+- backend unit tests
+- API tests
+- database tests
+- security testing
+
+FRONTEND WORKFLOW
+
+For important interfaces follow:
+
+RESEARCH
+    ↓
+Inspo MCP
+
+DESIGN
+    ↓
+Aegent design system/components
+
+IMPLEMENT
+    ↓
+React frontend
+
+VERIFY
+    ↓
+Playwright MCP
+
+FIX
+    ↓
+Retest with Playwright
+
+FINAL VALIDATION
+    ↓
+Automated tests + browser verification
+
+Rule:
+Research first.
+Design second.
+Implement third.
+Test fourth.
+Fix and retest before declaring the UI complete.
