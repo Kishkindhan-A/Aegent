@@ -8,11 +8,15 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_active_user, require_roles
 from app.database.session import get_db
 from app.models import User
-from app.models.enums import AgentRiskLevel, AgentStatus, AgentType, UserRole
+from app.models.enums import AgentRiskLevel, AgentStatus, AgentType, PolicyEffect, UserRole
+from app.policies.engine import evaluate_policy
 from app.repositories.agents import get_agent_by_id_for_org
 from app.schemas.agent import AgentCreate, AgentListResponse, AgentRead, AgentUpdate
+from app.schemas.policy import AuthorizationDecisionResponse
 from app.schemas.risk import RiskAssessmentResponse, RiskEvaluationRequest
 from app.services.agents import create_agent, disable_agent, list_agents, update_agent
+from app.services.approvals import create_approval_request
+from app.services.policies import list_enabled_policies_for_org
 from app.services.risk import evaluate_risk
 
 router = APIRouter(prefix='/agents', tags=['agents'])
@@ -107,3 +111,59 @@ def evaluate_agent_risk_endpoint(
     if agent is None:
         raise _not_found()
     return evaluate_risk(request, agent_id=agent.id)
+
+
+@router.post('/{agent_id}/authorize', response_model=AuthorizationDecisionResponse)
+def authorize_agent_action_endpoint(
+    agent_id: UUID,
+    request: RiskEvaluationRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AuthorizationDecisionResponse:
+    agent = get_agent_by_id_for_org(db, agent_id=agent_id, organization_id=current_user.organization_id)
+    if agent is None:
+        raise _not_found()
+
+    risk_assessment = evaluate_risk(request, agent_id=agent.id)
+    policies = list_enabled_policies_for_org(db, organization_id=current_user.organization_id)
+    decision = evaluate_policy(request.model_dump(mode='json'), risk_assessment.model_dump(mode='json'), policies)
+
+    matched_policy = None
+    approval_request_id = None
+    if decision.matched_policy_id is not None:
+        matched_policy = next((p for p in policies if p.id == decision.matched_policy_id), None)
+        if matched_policy is not None:
+            matched_policy = {
+                'id': str(matched_policy.id),
+                'name': matched_policy.name,
+                'effect': matched_policy.effect.value,
+                'priority': matched_policy.priority,
+            }
+
+    if decision.decision == PolicyEffect.REQUIRE_APPROVAL and decision.matched_policy_id is not None:
+        approval = create_approval_request(
+            db,
+            organization_id=current_user.organization_id,
+            agent_id=agent.id,
+            policy_id=decision.matched_policy_id,
+            requested_by_user_id=current_user.id,
+            action_context={
+                'agent_id': str(agent.id),
+                'agent_type': agent.agent_type.value,
+                **request.model_dump(mode='json', exclude_none=True),
+            },
+            risk_assessment=risk_assessment.model_dump(mode='json'),
+        )
+        approval_request_id = approval.id
+
+    return AuthorizationDecisionResponse(
+        decision=decision.decision,
+        risk={
+            'score': risk_assessment.score,
+            'risk_level': risk_assessment.risk_level.value,
+            'factors': risk_assessment.factors,
+        },
+        matched_policy=matched_policy,
+        reason=decision.reason,
+        approval_request_id=approval_request_id,
+    )

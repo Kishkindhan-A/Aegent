@@ -45,6 +45,19 @@ class AgentRiskLevel(str, enum.Enum):
     CRITICAL = "CRITICAL"
 
 
+class PolicyEffect(str, enum.Enum):
+    ALLOW = "ALLOW"
+    DENY = "DENY"
+    REQUIRE_APPROVAL = "REQUIRE_APPROVAL"
+
+
+class ApprovalStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
+
+
 class ActionType(str, enum.Enum):
     READ = "READ"
     WRITE = "WRITE"

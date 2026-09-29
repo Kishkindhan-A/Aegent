@@ -59,3 +59,12 @@ class User(Base):
     )
 
     organization: Mapped["Organization"] = relationship(back_populates="users")
+    policies: Mapped[list["Policy"]] = relationship(back_populates="created_by_user")
+    approval_requests_requested: Mapped[list["ApprovalRequest"]] = relationship(
+        back_populates="requested_by_user",
+        foreign_keys='[ApprovalRequest.requested_by_user_id]',
+    )
+    approval_requests_resolved: Mapped[list["ApprovalRequest"]] = relationship(
+        back_populates="resolved_by_user",
+        foreign_keys='[ApprovalRequest.resolved_by_user_id]',
+    )
