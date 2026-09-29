@@ -11,7 +11,9 @@ from app.models import User
 from app.models.enums import AgentRiskLevel, AgentStatus, AgentType, UserRole
 from app.repositories.agents import get_agent_by_id_for_org
 from app.schemas.agent import AgentCreate, AgentListResponse, AgentRead, AgentUpdate
+from app.schemas.risk import RiskAssessmentResponse, RiskEvaluationRequest
 from app.services.agents import create_agent, disable_agent, list_agents, update_agent
+from app.services.risk import evaluate_risk
 
 router = APIRouter(prefix='/agents', tags=['agents'])
 MANAGEMENT_ROLES = (UserRole.OWNER, UserRole.ADMIN, UserRole.SECURITY_ANALYST)
@@ -92,3 +94,16 @@ def disable_agent_endpoint(
     if agent is None:
         raise _not_found()
     return agent
+
+
+@router.post('/{agent_id}/risk/evaluate', response_model=RiskAssessmentResponse)
+def evaluate_agent_risk_endpoint(
+    agent_id: UUID,
+    request: RiskEvaluationRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> RiskAssessmentResponse:
+    agent = get_agent_by_id_for_org(db, agent_id=agent_id, organization_id=current_user.organization_id)
+    if agent is None:
+        raise _not_found()
+    return evaluate_risk(request, agent_id=agent.id)

@@ -43,3 +43,33 @@ class AgentRiskLevel(str, enum.Enum):
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
+
+
+class ActionType(str, enum.Enum):
+    READ = "READ"
+    WRITE = "WRITE"
+    DELETE = "DELETE"
+    EXECUTE = "EXECUTE"
+    NETWORK = "NETWORK"
+    TRANSFER = "TRANSFER"
+    ADMIN = "ADMIN"
+
+
+class Environment(str, enum.Enum):
+    DEVELOPMENT = "DEVELOPMENT"
+    STAGING = "STAGING"
+    PRODUCTION = "PRODUCTION"
+
+
+class DataSensitivity(str, enum.Enum):
+    PUBLIC = "PUBLIC"
+    INTERNAL = "INTERNAL"
+    CONFIDENTIAL = "CONFIDENTIAL"
+    RESTRICTED = "RESTRICTED"
+
+
+class PrivilegeLevel(str, enum.Enum):
+    LOW = "LOW"
+    STANDARD = "STANDARD"
+    ELEVATED = "ELEVATED"
+    ADMIN = "ADMIN"

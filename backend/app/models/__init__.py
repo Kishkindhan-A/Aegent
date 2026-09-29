@@ -1,10 +1,14 @@
 from app.models.agent import Agent
 from app.models.auth_session import AuthSession
 from app.models.enums import (
+    ActionType,
     AgentRiskLevel,
     AgentStatus,
     AgentType,
+    DataSensitivity,
+    Environment,
     OrganizationStatus,
+    PrivilegeLevel,
     UserRole,
     UserStatus,
 )
@@ -16,10 +20,14 @@ __all__ = [
     "User",
     "Agent",
     "AuthSession",
+    "ActionType",
     "AgentRiskLevel",
     "AgentStatus",
     "AgentType",
+    "DataSensitivity",
+    "Environment",
     "OrganizationStatus",
+    "PrivilegeLevel",
     "UserRole",
     "UserStatus",
 ]
