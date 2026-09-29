@@ -21,3 +21,25 @@ class UserStatus(str, enum.Enum):
     INVITED = "INVITED"
     SUSPENDED = "SUSPENDED"
     DISABLED = "DISABLED"
+
+
+class AgentType(str, enum.Enum):
+    GENERAL = "GENERAL"
+    CODING = "CODING"
+    DATA = "DATA"
+    SECURITY = "SECURITY"
+    AUTOMATION = "AUTOMATION"
+    CUSTOM = "CUSTOM"
+
+
+class AgentStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    DISABLED = "DISABLED"
+    SUSPENDED = "SUSPENDED"
+
+
+class AgentRiskLevel(str, enum.Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"

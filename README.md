@@ -13,11 +13,11 @@ Aegent is a security gateway for autonomous AI agents. It provides a foundation 
 - Modular backend package structure
 - PostgreSQL configuration foundation
 - SQLAlchemy and Alembic database foundation
-
-### Planned
 - PostgreSQL domain models
 - Authentication and authorization
-- AI agent identity and resource permissions
+- Tenant-scoped AI agent identity and management API
+
+### Planned
 - Policy evaluation and risk engine
 - Audit logging and security event processing
 - Frontend application
@@ -51,4 +51,16 @@ Add the actual value for `DATABASE_URL` in a local `.env` file if you want to us
 
 ## Notes
 
-This project is currently in Phase 2: PostgreSQL + SQLAlchemy + Alembic foundation. Domain models and authentication layers are still planned, and the frontend remains out of scope for this phase.
+The project is currently in Phase 5: PostgreSQL + SQLAlchemy + Alembic foundation, authentication, authorization, and tenant-scoped agent identity management. The frontend remains out of scope for this phase.
+
+## Agent API
+
+Authenticated users can list and view agents only within their organization:
+
+- `POST /api/v1/agents`
+- `GET /api/v1/agents`
+- `GET /api/v1/agents/{agent_id}`
+- `PATCH /api/v1/agents/{agent_id}`
+- `POST /api/v1/agents/{agent_id}/disable`
+
+Agent creation, updates, and disabling require an `OWNER`, `ADMIN`, or `SECURITY_ANALYST` role. Organization ownership is always derived from the authenticated user context. `risk_level` is persisted metadata with a `LOW` default; risk calculation is not part of Phase 5.
