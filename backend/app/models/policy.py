@@ -65,3 +65,4 @@ class Policy(Base):
     organization: Mapped['Organization'] = relationship(back_populates='policies')
     created_by_user: Mapped['User | None'] = relationship(back_populates='policies')
     approval_requests: Mapped[list['ApprovalRequest']] = relationship(back_populates='policy')
+    audit_events: Mapped[list['AuditEvent']] = relationship(back_populates='policy')

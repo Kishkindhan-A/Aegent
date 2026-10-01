@@ -3,6 +3,7 @@ from sqlalchemy import text
 
 from app.api.v1.agents import router as agents_router
 from app.api.v1.approvals import router as approvals_router
+from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.policies import router as policies_router
 from app.database.session import SessionLocal
@@ -17,6 +18,7 @@ app.include_router(auth_router, prefix='/api/v1')
 app.include_router(agents_router, prefix='/api/v1')
 app.include_router(policies_router, prefix='/api/v1')
 app.include_router(approvals_router, prefix='/api/v1')
+app.include_router(audit_router, prefix='/api/v1')
 
 
 @app.get("/")

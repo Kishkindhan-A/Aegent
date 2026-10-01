@@ -97,3 +97,4 @@ class ApprovalRequest(Base):
         back_populates='approval_requests_resolved',
         foreign_keys='[ApprovalRequest.resolved_by_user_id]',
     )
+    audit_events: Mapped[list['AuditEvent']] = relationship(back_populates='approval_request')

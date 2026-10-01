@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_active_user, require_roles
 from app.database.session import get_db
 from app.models import AuthSession, Organization, User
-from app.models.enums import OrganizationStatus, UserRole, UserStatus
+from app.models.enums import ActorType, AuditEventType, OrganizationStatus, UserRole, UserStatus
 from app.schemas.auth import (
     AuthStatusResponse,
     CurrentUserResponse,
@@ -87,6 +87,7 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)) -> TokenRe
         expires_at=now_utc() + timedelta(days=7),
     )
     db.add(session)
+    db.flush()
     db.commit()
     db.refresh(user)
     db.refresh(organization)
@@ -141,6 +142,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
         expires_at=now_utc() + timedelta(days=7),
     )
     db.add(session)
+    db.flush()
     db.commit()
 
     return TokenResponse(

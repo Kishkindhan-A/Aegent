@@ -8,7 +8,7 @@ from sqlalchemy import delete
 
 from app.database.session import SessionLocal
 from app.main import app
-from app.models import Agent, ApprovalRequest, Organization, Policy, User
+from app.models import Agent, ApprovalRequest, AuditEvent, Organization, Policy, User
 from app.models.enums import ActionType, ApprovalStatus, DataSensitivity, Environment, PolicyEffect, PrivilegeLevel, UserRole
 from app.policies.engine import evaluate_policy
 from app.security.passwords import hash_password
@@ -23,6 +23,7 @@ def clean_phase7_test_data():
     if not _created_organization_ids:
         return
     with SessionLocal() as session:
+        session.execute(delete(AuditEvent).where(AuditEvent.organization_id.in_(_created_organization_ids)))
         session.execute(delete(ApprovalRequest).where(ApprovalRequest.organization_id.in_(_created_organization_ids)))
         session.execute(delete(Policy).where(Policy.organization_id.in_(_created_organization_ids)))
         session.execute(delete(Agent).where(Agent.organization_id.in_(_created_organization_ids)))

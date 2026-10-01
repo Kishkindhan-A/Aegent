@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_active_user, require_roles
 from app.database.session import get_db
 from app.models import User
-from app.models.enums import AgentRiskLevel, AgentStatus, AgentType, PolicyEffect, UserRole
+from app.models.enums import ActorType, AgentRiskLevel, AgentStatus, AgentType, AuditEventType, PolicyEffect, UserRole
+from app.services.audit import record_audit_event
 from app.policies.engine import evaluate_policy
 from app.repositories.agents import get_agent_by_id_for_org
 from app.schemas.agent import AgentCreate, AgentListResponse, AgentRead, AgentUpdate
@@ -33,7 +34,7 @@ def create_agent_endpoint(
     current_user: User = Depends(require_roles(*MANAGEMENT_ROLES)),
     db: Session = Depends(get_db),
 ) -> AgentRead:
-    return create_agent(db, organization_id=current_user.organization_id, data=request)
+    return create_agent(db, organization_id=current_user.organization_id, data=request, actor_user_id=current_user.id)
 
 
 @router.get('', response_model=AgentListResponse)
@@ -82,6 +83,7 @@ def update_agent_endpoint(
         organization_id=current_user.organization_id,
         agent_id=agent_id,
         data=request,
+        actor_user_id=current_user.id,
     )
     if agent is None:
         raise _not_found()
@@ -94,7 +96,7 @@ def disable_agent_endpoint(
     current_user: User = Depends(require_roles(*MANAGEMENT_ROLES)),
     db: Session = Depends(get_db),
 ) -> AgentRead:
-    agent = disable_agent(db, organization_id=current_user.organization_id, agent_id=agent_id)
+    agent = disable_agent(db, organization_id=current_user.organization_id, agent_id=agent_id, actor_user_id=current_user.id)
     if agent is None:
         raise _not_found()
     return agent
@@ -110,7 +112,22 @@ def evaluate_agent_risk_endpoint(
     agent = get_agent_by_id_for_org(db, agent_id=agent_id, organization_id=current_user.organization_id)
     if agent is None:
         raise _not_found()
-    return evaluate_risk(request, agent_id=agent.id)
+    risk_assessment = evaluate_risk(request, agent_id=agent.id)
+    correlation_id = str(uuid4())
+    record_audit_event(
+        db,
+        organization_id=current_user.organization_id,
+        event_type=AuditEventType.RISK_EVALUATED,
+        actor_type=ActorType.USER,
+        actor_user_id=current_user.id,
+        agent_id=agent.id,
+        correlation_id=correlation_id,
+        source='agents.risk.evaluate',
+        summary='Risk evaluation recorded.',
+        details={'agent_id': str(agent.id), 'action_type': request.action_type.value, 'environment': request.environment.value, 'risk_score': risk_assessment.score, 'risk_level': risk_assessment.risk_level.value},
+    )
+    db.commit()
+    return risk_assessment
 
 
 @router.post('/{agent_id}/authorize', response_model=AuthorizationDecisionResponse)
@@ -124,7 +141,20 @@ def authorize_agent_action_endpoint(
     if agent is None:
         raise _not_found()
 
+    correlation_id = str(uuid4())
     risk_assessment = evaluate_risk(request, agent_id=agent.id)
+    record_audit_event(
+        db,
+        organization_id=current_user.organization_id,
+        event_type=AuditEventType.RISK_EVALUATED,
+        actor_type=ActorType.USER,
+        actor_user_id=current_user.id,
+        agent_id=agent.id,
+        correlation_id=correlation_id,
+        source='agents.authorize.risk',
+        summary='Risk evaluation recorded for authorization decision.',
+        details={'agent_id': str(agent.id), 'action_type': request.action_type.value, 'environment': request.environment.value, 'risk_score': risk_assessment.score, 'risk_level': risk_assessment.risk_level.value},
+    )
     policies = list_enabled_policies_for_org(db, organization_id=current_user.organization_id)
     decision = evaluate_policy(request.model_dump(mode='json'), risk_assessment.model_dump(mode='json'), policies)
 
@@ -155,6 +185,21 @@ def authorize_agent_action_endpoint(
             risk_assessment=risk_assessment.model_dump(mode='json'),
         )
         approval_request_id = approval.id
+
+    record_audit_event(
+        db,
+        organization_id=current_user.organization_id,
+        event_type=AuditEventType.AUTHORIZATION_EVALUATED,
+        actor_type=ActorType.USER,
+        actor_user_id=current_user.id,
+        agent_id=agent.id,
+        policy_id=decision.matched_policy_id,
+        correlation_id=correlation_id,
+        source='agents.authorize',
+        summary='Authorization decision evaluated.',
+        details={'agent_id': str(agent.id), 'decision': decision.decision.value, 'risk_score': decision.risk_score, 'risk_level': (decision.risk_level or risk_assessment.risk_level.value), 'matched_policy_id': str(decision.matched_policy_id) if decision.matched_policy_id else None},
+    )
+    db.commit()
 
     return AuthorizationDecisionResponse(
         decision=decision.decision,

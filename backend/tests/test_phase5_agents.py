@@ -10,7 +10,7 @@ from sqlalchemy import delete
 
 from app.database.session import SessionLocal
 from app.main import app
-from app.models import Agent, Organization, User
+from app.models import Agent, AuditEvent, Organization, User
 from app.models.enums import AgentRiskLevel, AgentStatus, AgentType, UserRole
 from app.schemas.agent import AgentCreate, AgentUpdate
 from app.security.passwords import hash_password
@@ -25,6 +25,9 @@ def clean_phase5_test_data():
     if not _created_organization_ids:
         return
     with SessionLocal() as session:
+        session.execute(delete(AuditEvent).where(AuditEvent.organization_id.in_(_created_organization_ids)))
+        session.execute(delete(Agent).where(Agent.organization_id.in_(_created_organization_ids)))
+        session.execute(delete(User).where(User.organization_id.in_(_created_organization_ids)))
         session.execute(delete(Organization).where(Organization.id.in_(_created_organization_ids)))
         session.commit()
     _created_organization_ids.clear()

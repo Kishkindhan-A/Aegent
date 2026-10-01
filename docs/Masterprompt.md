@@ -279,7 +279,6 @@ CRITICAL
 Visual severity indicators must remain understandable without relying only on color.
 
 Use:
-
 text
 iconography
 labels

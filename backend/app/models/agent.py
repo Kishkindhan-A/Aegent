@@ -66,3 +66,4 @@ class Agent(Base):
 
     organization: Mapped["Organization"] = relationship(back_populates="agents")
     approval_requests: Mapped[list["ApprovalRequest"]] = relationship(back_populates="agent")
+    audit_events: Mapped[list["AuditEvent"]] = relationship(back_populates="agent")

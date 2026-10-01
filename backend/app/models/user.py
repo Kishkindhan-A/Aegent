@@ -68,3 +68,4 @@ class User(Base):
         back_populates="resolved_by_user",
         foreign_keys='[ApprovalRequest.resolved_by_user_id]',
     )
+    audit_events: Mapped[list["AuditEvent"]] = relationship(back_populates="actor_user")

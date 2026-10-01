@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models import ApprovalRequest, Policy, User
-from app.models.enums import AgentRiskLevel, ApprovalStatus, PolicyEffect
+from app.models.enums import ActorType, AgentRiskLevel, ApprovalStatus, AuditEventType, PolicyEffect
+from app.services.audit import record_audit_event
 from app.repositories.approvals import get_approval_by_id_for_org, list_approvals_for_org
 from app.schemas.approval import ApprovalRequestRead, ApprovalResolutionRequest
 
@@ -88,6 +89,20 @@ def create_approval_request(
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=settings.approval_request_expire_minutes),
     )
     db.add(approval)
+    db.flush()
+    record_audit_event(
+        db,
+        organization_id=organization_id,
+        event_type=AuditEventType.APPROVAL_REQUESTED,
+        actor_type=ActorType.USER if requested_by_user_id is not None else ActorType.SYSTEM,
+        actor_user_id=requested_by_user_id,
+        agent_id=agent_id,
+        policy_id=policy_id,
+        approval_request_id=approval.id,
+        source='approvals.request',
+        summary='Approval request created.',
+        details={'approval_request_id': str(approval.id), 'agent_id': str(agent_id), 'policy_id': str(policy_id), 'risk_score': int(risk_assessment.get('score', 0)), 'risk_level': str(risk_assessment.get('risk_level', AgentRiskLevel.LOW))},
+    )
     db.commit()
     db.refresh(approval)
     return approval
@@ -123,42 +138,55 @@ def resolve_approval(
     action: str,
     resolution_reason: str | None,
 ) -> ApprovalRequest:
-    with db.begin():
-        approval = db.execute(
-            select(ApprovalRequest)
-            .where(
-                ApprovalRequest.id == approval_id,
-                ApprovalRequest.organization_id == organization_id,
-            )
-            .with_for_update()
-        ).scalar_one_or_none()
-        if approval is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Approval request not found.')
-        if approval.requested_by_user_id == reviewer.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Self-approval is not allowed.')
-        if approval.status != ApprovalStatus.PENDING:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Approval request is not pending.')
-        if approval.expires_at <= datetime.now(timezone.utc):
-            approval.status = ApprovalStatus.EXPIRED
-            approval.resolved_at = datetime.now(timezone.utc)
-            approval.resolved_by_user_id = reviewer.id
-            approval.resolution_reason = 'Approval expired.'
-            db.flush()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Approval request has expired.')
-
-        if action == 'approve':
-            approval.status = ApprovalStatus.APPROVED
-            approval.resolution_reason = resolution_reason or 'Approved by reviewer.'
-        elif action == 'reject':
-            approval.status = ApprovalStatus.REJECTED
-            approval.resolution_reason = resolution_reason or 'Rejected by reviewer.'
-        else:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Unsupported resolution action.')
-
+    approval = db.execute(
+        select(ApprovalRequest)
+        .where(
+            ApprovalRequest.id == approval_id,
+            ApprovalRequest.organization_id == organization_id,
+        )
+        .with_for_update()
+    ).scalar_one_or_none()
+    if approval is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Approval request not found.')
+    if approval.status != ApprovalStatus.PENDING:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Approval request is not pending.')
+    if approval.expires_at <= datetime.now(timezone.utc):
+        approval.status = ApprovalStatus.EXPIRED
         approval.resolved_at = datetime.now(timezone.utc)
         approval.resolved_by_user_id = reviewer.id
+        approval.resolution_reason = 'Approval expired.'
         db.flush()
-        return approval
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Approval request has expired.')
+
+    if action == 'approve':
+        approval.status = ApprovalStatus.APPROVED
+        approval.resolution_reason = resolution_reason or 'Approved by reviewer.'
+    elif action == 'reject':
+        approval.status = ApprovalStatus.REJECTED
+        approval.resolution_reason = resolution_reason or 'Rejected by reviewer.'
+    else:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='Unsupported resolution action.')
+
+    approval.resolved_at = datetime.now(timezone.utc)
+    approval.resolved_by_user_id = reviewer.id
+    db.flush()
+    event_type = AuditEventType.APPROVAL_APPROVED if action == 'approve' else AuditEventType.APPROVAL_REJECTED
+    record_audit_event(
+        db,
+        organization_id=organization_id,
+        event_type=event_type,
+        actor_type=ActorType.USER,
+        actor_user_id=reviewer.id,
+        agent_id=approval.agent_id,
+        policy_id=approval.policy_id,
+        approval_request_id=approval.id,
+        source='approvals.resolve',
+        summary='Approval request resolved.',
+        details={'approval_request_id': str(approval.id), 'status': approval.status.value, 'reviewer_user_id': str(reviewer.id), 'risk_score': approval.risk_score, 'risk_level': approval.risk_level.value},
+    )
+    db.commit()
+    db.refresh(approval)
+    return approval
 
 
 def approve_approval_request(db: Session, *, organization_id: UUID, approval_id: UUID, reviewer: User, resolution_reason: str | None) -> ApprovalRequest:

@@ -66,7 +66,13 @@ def update_policy_endpoint(
     current_user: User = Depends(require_roles(*MANAGEMENT_ROLES)),
     db: Session = Depends(get_db),
 ) -> PolicyRead:
-    policy = update_policy(db, organization_id=current_user.organization_id, policy_id=policy_id, data=request)
+    policy = update_policy(
+        db,
+        organization_id=current_user.organization_id,
+        policy_id=policy_id,
+        data=request,
+        actor_user_id=current_user.id,
+    )
     if policy is None:
         raise _not_found()
     return policy
@@ -78,7 +84,7 @@ def disable_policy_endpoint(
     current_user: User = Depends(require_roles(*MANAGEMENT_ROLES)),
     db: Session = Depends(get_db),
 ) -> PolicyRead:
-    policy = disable_policy(db, organization_id=current_user.organization_id, policy_id=policy_id)
+    policy = disable_policy(db, organization_id=current_user.organization_id, policy_id=policy_id, actor_user_id=current_user.id)
     if policy is None:
         raise _not_found()
     return policy
