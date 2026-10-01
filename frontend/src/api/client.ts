@@ -1,0 +1,108 @@
+import type { ApiError, TokenResponse } from '../types/auth'
+
+const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+let accessToken: string | null = null
+let refreshPromise: Promise<TokenResponse | null> | null = null
+
+export const sessionStore = {
+  getRefreshToken: () => sessionStorage.getItem('aegent.refresh_token'),
+  setRefreshToken: (token: string) => sessionStorage.setItem('aegent.refresh_token', token),
+  clear: () => {
+    accessToken = null
+    sessionStorage.removeItem('aegent.refresh_token')
+  },
+}
+
+export function setAccessToken(token: string | null) {
+  accessToken = token
+}
+
+function messageForStatus(status: number) {
+  if (status === 401) return 'Your session is no longer valid. Please sign in again.'
+  if (status === 403) return 'You do not have permission to perform this action.'
+  if (status === 404) return 'The requested resource is unavailable.'
+  if (status === 422) return 'Please check the highlighted fields and try again.'
+  if (status >= 500) return 'Aegent is temporarily unavailable. Please try again.'
+  return 'The request could not be completed.'
+}
+
+async function parseResponse(response: Response) {
+  const contentType = response.headers.get('content-type') || ''
+  const body = contentType.includes('application/json') ? await response.json() : null
+  if (!response.ok) {
+    const error = new Error(typeof body?.detail === 'string' ? body.detail : messageForStatus(response.status)) as ApiError
+    error.status = response.status
+    error.details = body?.detail
+    throw error
+  }
+  return body
+}
+
+async function refreshSession() {
+  const refreshToken = sessionStore.getRefreshToken()
+  if (!refreshToken) return null
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${baseUrl}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+      .then(parseResponse)
+      .then((tokens: TokenResponse) => {
+        setAccessToken(tokens.access_token)
+        sessionStore.setRefreshToken(tokens.refresh_token)
+        return tokens
+      })
+      .catch(() => {
+        sessionStore.clear()
+        window.dispatchEvent(new Event('aegent:session-expired'))
+        return null
+      })
+      .finally(() => { refreshPromise = null })
+  }
+  return refreshPromise
+}
+
+export async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
+  const headers = new Headers(options.headers)
+  headers.set('Content-Type', 'application/json')
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+  let response: Response
+  try {
+    response = await fetch(`${baseUrl}${path}`, { ...options, headers })
+  } catch {
+    const error = new Error('Unable to reach Aegent. Check the backend connection and try again.') as ApiError
+    error.status = 0
+    throw error
+  }
+  if (response.status === 401 && retry && !path.includes('/auth/')) {
+    const refreshed = await refreshSession()
+    if (refreshed) return request<T>(path, options, false)
+  }
+  return parseResponse(response)
+}
+
+export const authApi = {
+  login: (payload: { email: string; password: string; organization_slug: string }) => request<TokenResponse>('/api/v1/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  register: (payload: { organization_name: string; organization_slug: string; owner_email: string; owner_full_name: string; password: string }) => request<TokenResponse>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
+  me: () => request<import('../types/auth').CurrentUser>('/api/v1/auth/me'),
+  restore: async () => {
+    const tokens = await refreshSession()
+    if (!tokens) return null
+    try {
+      return await authApi.me()
+    } catch (error) {
+      sessionStore.clear()
+      window.dispatchEvent(new Event('aegent:session-expired'))
+      throw error
+    }
+  },
+  logout: async () => {
+    const token = sessionStore.getRefreshToken()
+    try {
+      if (token) await request('/api/v1/auth/logout', { method: 'POST', body: JSON.stringify({ refresh_token: token }) }, false)
+    } finally {
+      sessionStore.clear()
+    }
+  },
+}

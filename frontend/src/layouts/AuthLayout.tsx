@@ -1,0 +1,6 @@
+import { ShieldCheck } from 'lucide-react'
+import type { ReactNode } from 'react'
+
+export function AuthLayout({ children, eyebrow, title, description }: { children: ReactNode; eyebrow: string; title: string; description: string }) {
+  return <main className="auth-page"><section className="auth-aside"><div className="brand"><span className="brand-mark"><ShieldCheck size={20} /></span><span>Aegent</span></div><div className="auth-aside-copy"><p className="eyebrow">Security and governance</p><h1>Control every action your agents take.</h1><p>Make autonomous systems accountable with identity, policy, risk, and audit controls built for the enterprise.</p></div><div className="trust-line"><span className="status-dot" />Policy enforcement online</div></section><section className="auth-panel"><div className="auth-form-wrap"><div className="mobile-brand brand"><span className="brand-mark"><ShieldCheck size={20} /></span><span>Aegent</span></div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p className="auth-description">{description}</p>{children}</div></section></main>
+}

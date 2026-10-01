@@ -1,5 +1,28 @@
 # Aegent
 
+Security and governance for autonomous AI agents.
+
+## Frontend foundation
+
+The Phase 10 frontend is a React + TypeScript + Vite application in `frontend/`.
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+The development server proxies `/api` to `http://127.0.0.1:8000`. Start the FastAPI backend separately from `backend/`. Copy `frontend/.env.example` to `frontend/.env` only when the API is hosted at a different base URL; `VITE_API_BASE_URL` is client-visible and must not contain secrets.
+
+Frontend checks:
+
+```powershell
+npm run lint
+npm test
+npm run build
+```
+# Aegent
+
 Security and Governance for Autonomous AI Agents
 
 Aegent is a security gateway for autonomous AI agents. It provides a foundation for policy enforcement, approval flows, and governance controls around agent actions.
