@@ -211,6 +211,8 @@ def test_audit_event_integration_for_agent_policy_and_approval_lifecycle():
     organization = _create_organization('LifecycleOrg')
     owner = _create_user(organization, 'owner@lifecycle.example', UserRole.OWNER)
     token = _login(owner, organization)
+    reviewer = _create_user(organization, 'reviewer@lifecycle.example', UserRole.SECURITY_ANALYST)
+    reviewer_token = _login(reviewer, organization)
     agent = _create_agent(organization, 'lifecycle-agent')
     _create_policy(
         organization,
@@ -250,7 +252,7 @@ def test_audit_event_integration_for_agent_policy_and_approval_lifecycle():
 
     response = client.post(
         f'/api/v1/approvals/{approval_id}/approve',
-        headers={'Authorization': f'Bearer {token}'},
+        headers={'Authorization': f'Bearer {reviewer_token}'},
         json={'resolution_reason': 'Approved by owner.'},
     )
     assert response.status_code == 200, response.text

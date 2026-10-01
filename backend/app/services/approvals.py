@@ -150,12 +150,27 @@ def resolve_approval(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Approval request not found.')
     if approval.status != ApprovalStatus.PENDING:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Approval request is not pending.')
+    if approval.requested_by_user_id == reviewer.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Requesters cannot resolve their own approval requests.')
     if approval.expires_at <= datetime.now(timezone.utc):
         approval.status = ApprovalStatus.EXPIRED
         approval.resolved_at = datetime.now(timezone.utc)
         approval.resolved_by_user_id = reviewer.id
         approval.resolution_reason = 'Approval expired.'
-        db.flush()
+        record_audit_event(
+            db,
+            organization_id=organization_id,
+            event_type=AuditEventType.APPROVAL_EXPIRED,
+            actor_type=ActorType.USER,
+            actor_user_id=reviewer.id,
+            agent_id=approval.agent_id,
+            policy_id=approval.policy_id,
+            approval_request_id=approval.id,
+            source='approvals.resolve',
+            summary='Approval request expired before review.',
+            details={'approval_request_id': str(approval.id), 'reviewer_user_id': str(reviewer.id)},
+        )
+        db.commit()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Approval request has expired.')
 
     if action == 'approve':

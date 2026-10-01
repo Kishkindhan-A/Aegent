@@ -51,9 +51,12 @@ def list_policies_for_org(
     offset: int,
     limit: int,
     enabled_only: bool = False,
+    enabled: bool | None = None,
 ) -> tuple[list[Policy], int]:
     filters = [Policy.organization_id == organization_id]
-    if enabled_only:
+    if enabled is not None:
+        filters.append(Policy.enabled.is_(enabled))
+    elif enabled_only:
         filters.append(Policy.enabled.is_(True))
 
     total = db.scalar(select(func.count(Policy.id)).where(*filters)) or 0

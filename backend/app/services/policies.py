@@ -56,6 +56,7 @@ def list_policies(
     offset: int,
     limit: int,
     enabled_only: bool = False,
+    enabled: bool | None = None,
 ) -> tuple[list[Policy], int]:
     return list_policies_for_org(
         db,
@@ -63,6 +64,7 @@ def list_policies(
         offset=offset,
         limit=limit,
         enabled_only=enabled_only,
+        enabled=enabled,
     )
 
 

@@ -1,5 +1,7 @@
 import type { ApiError, TokenResponse } from '../types/auth'
 import type { Agent, AgentCreateInput, AgentListResponse, AgentUpdateInput, RiskAssessment, RiskEvaluationInput, SecurityScanInput, SecurityScanResult } from '../types/agents'
+import type { ApprovalListResponse, ApprovalRequest, ApprovalResolutionRequest } from '../types/approvals'
+import type { Policy, PolicyCreateInput, PolicyListResponse, PolicyUpdateInput } from '../types/policies'
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 let accessToken: string | null = null
@@ -120,4 +122,31 @@ export const agentsApi = {
   disable: (agentId: string) => request<Agent>(`/api/v1/agents/${agentId}/disable`, { method: 'POST' }),
   evaluateRisk: (agentId: string, payload: RiskEvaluationInput) => request<RiskAssessment>(`/api/v1/agents/${agentId}/risk/evaluate`, { method: 'POST', body: JSON.stringify(payload) }),
   scan: (agentId: string, payload: SecurityScanInput) => request<SecurityScanResult>(`/api/v1/agents/${agentId}/security/scan`, { method: 'POST', body: JSON.stringify(payload) }),
+}
+
+export const policiesApi = {
+  list: (params: { offset?: number; limit?: number; enabled?: boolean } = {}) => {
+    const query = new URLSearchParams()
+    if (params.offset !== undefined) query.set('offset', String(params.offset))
+    if (params.limit !== undefined) query.set('limit', String(params.limit))
+    if (params.enabled !== undefined) query.set('enabled', String(params.enabled))
+    return request<PolicyListResponse>(`/api/v1/policies${query.size ? `?${query}` : ''}`)
+  },
+  get: (policyId: string) => request<Policy>(`/api/v1/policies/${policyId}`),
+  create: (payload: PolicyCreateInput) => request<Policy>('/api/v1/policies', { method: 'POST', body: JSON.stringify(payload) }),
+  update: (policyId: string, payload: PolicyUpdateInput) => request<Policy>(`/api/v1/policies/${policyId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  disable: (policyId: string) => request<Policy>(`/api/v1/policies/${policyId}/disable`, { method: 'POST' }),
+}
+
+export const approvalsApi = {
+  list: (params: { offset?: number; limit?: number; status?: string } = {}) => {
+    const query = new URLSearchParams()
+    if (params.offset !== undefined) query.set('offset', String(params.offset))
+    if (params.limit !== undefined) query.set('limit', String(params.limit))
+    if (params.status) query.set('status', params.status)
+    return request<ApprovalListResponse>(`/api/v1/approvals${query.size ? `?${query}` : ''}`)
+  },
+  get: (approvalId: string) => request<ApprovalRequest>(`/api/v1/approvals/${approvalId}`),
+  approve: (approvalId: string, resolutionReason?: string) => request<ApprovalRequest>(`/api/v1/approvals/${approvalId}/approve`, { method: 'POST', body: JSON.stringify({ resolution_reason: resolutionReason || undefined }) }),
+  reject: (approvalId: string, resolutionReason?: string) => request<ApprovalRequest>(`/api/v1/approvals/${approvalId}/reject`, { method: 'POST', body: JSON.stringify({ resolution_reason: resolutionReason || undefined }) }),
 }

@@ -42,7 +42,7 @@ def list_policies_endpoint(
         organization_id=current_user.organization_id,
         offset=offset,
         limit=limit,
-        enabled_only=enabled if enabled is not None else False,
+        enabled=enabled,
     )
     return PolicyListResponse(items=policies, total=total, offset=offset, limit=limit)
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
@@ -9,7 +10,7 @@ from sqlalchemy import delete
 from app.database.session import SessionLocal
 from app.main import app
 from app.models import Agent, ApprovalRequest, AuditEvent, Organization, Policy, User
-from app.models.enums import ActionType, ApprovalStatus, DataSensitivity, Environment, PolicyEffect, PrivilegeLevel, UserRole
+from app.models.enums import ActionType, ApprovalStatus, AuditEventType, DataSensitivity, Environment, PolicyEffect, PrivilegeLevel, UserRole
 from app.policies.engine import evaluate_policy
 from app.security.passwords import hash_password
 
@@ -186,6 +187,151 @@ def test_authorize_endpoint_evaluates_policies_and_creates_pending_approval():
         assert approval.status == ApprovalStatus.PENDING
         assert approval.organization_id == organization.id
         assert approval.agent_id == agent.id
+
+
+def test_requester_cannot_approve_or_reject_own_approval_request():
+    organization = _create_organization('OrgSelfReview')
+    requester = _create_user(organization, 'requester@aegent.example', UserRole.OWNER)
+    agent = _create_agent(organization, 'self-review-agent')
+    token = _login(requester, organization)
+    _create_policy(
+        organization,
+        name='require-approval-for-self-review-test',
+        effect=PolicyEffect.REQUIRE_APPROVAL,
+        priority=50,
+        conditions={'action_type': ActionType.WRITE.value, 'environment': Environment.PRODUCTION.value},
+    )
+
+    authorization = client.post(
+        f'/api/v1/agents/{agent.id}/authorize',
+        headers={'Authorization': f'Bearer {token}'},
+        json={
+            'action_type': 'WRITE',
+            'resource_type': 'DATABASE',
+            'operation': 'UPDATE_TEST_RECORD',
+            'environment': 'PRODUCTION',
+            'data_sensitivity': 'CONFIDENTIAL',
+            'privilege_level': 'STANDARD',
+            'external_network_access': False,
+            'write_capability': True,
+            'destructive_capability': False,
+            'credential_access': False,
+            'financial_impact': False,
+            'requires_human_approval': False,
+            'metadata': {},
+        },
+    )
+    assert authorization.status_code == 200, authorization.text
+    approval_id = authorization.json()['approval_request_id']
+    assert approval_id is not None
+
+    for action in ('approve', 'reject'):
+        response = client.post(
+            f'/api/v1/approvals/{approval_id}/{action}',
+            headers={'Authorization': f'Bearer {token}'},
+            json={'resolution_reason': 'Self-review regression test.'},
+        )
+        assert response.status_code == 403, response.text
+
+    with SessionLocal() as session:
+        approval = session.query(ApprovalRequest).filter_by(id=approval_id).one()
+        assert approval.status == ApprovalStatus.PENDING
+        assert approval.resolved_by_user_id is None
+        resolution_events = session.query(AuditEvent).filter(
+            AuditEvent.approval_request_id == approval_id,
+            AuditEvent.event_type.in_([AuditEventType.APPROVAL_APPROVED, AuditEventType.APPROVAL_REJECTED]),
+        ).all()
+        assert resolution_events == []
+
+
+def test_policy_list_enabled_filter_supports_true_false_and_unfiltered():
+    organization = _create_organization('OrgPolicyEnabledFilter')
+    owner = _create_user(organization, 'owner-enabled-filter@aegent.example', UserRole.OWNER)
+    enabled_policy = _create_policy(
+        organization,
+        name='enabled-filter-policy',
+        effect=PolicyEffect.ALLOW,
+        priority=20,
+    )
+    disabled_policy = _create_policy(
+        organization,
+        name='disabled-filter-policy',
+        effect=PolicyEffect.DENY,
+        priority=10,
+        enabled=False,
+    )
+    token = _login(owner, organization)
+    headers = {'Authorization': f'Bearer {token}'}
+
+    enabled_response = client.get('/api/v1/policies?enabled=true', headers=headers)
+    disabled_response = client.get('/api/v1/policies?enabled=false', headers=headers)
+    all_response = client.get('/api/v1/policies', headers=headers)
+
+    assert enabled_response.status_code == 200
+    assert {item['id'] for item in enabled_response.json()['items']} == {str(enabled_policy.id)}
+    assert disabled_response.status_code == 200
+    assert {item['id'] for item in disabled_response.json()['items']} == {str(disabled_policy.id)}
+    assert all_response.status_code == 200
+    assert {item['id'] for item in all_response.json()['items']} == {str(enabled_policy.id), str(disabled_policy.id)}
+
+
+def test_expired_approval_is_persisted_when_review_is_attempted():
+    organization = _create_organization('OrgExpiredReview')
+    requester = _create_user(organization, 'requester-expired@aegent.example', UserRole.OWNER)
+    reviewer = _create_user(organization, 'reviewer-expired@aegent.example', UserRole.SECURITY_ANALYST)
+    agent = _create_agent(organization, 'expired-review-agent')
+    requester_token = _login(requester, organization)
+    reviewer_token = _login(reviewer, organization)
+    _create_policy(
+        organization,
+        name='require-approval-for-expiration-test',
+        effect=PolicyEffect.REQUIRE_APPROVAL,
+        priority=50,
+        conditions={'action_type': ActionType.WRITE.value, 'environment': Environment.PRODUCTION.value},
+    )
+
+    authorization = client.post(
+        f'/api/v1/agents/{agent.id}/authorize',
+        headers={'Authorization': f'Bearer {requester_token}'},
+        json={
+            'action_type': 'WRITE',
+            'resource_type': 'DATABASE',
+            'operation': 'EXPIRED_REVIEW_TEST',
+            'environment': 'PRODUCTION',
+            'data_sensitivity': 'CONFIDENTIAL',
+            'privilege_level': 'STANDARD',
+            'external_network_access': False,
+            'write_capability': True,
+            'destructive_capability': False,
+            'credential_access': False,
+            'financial_impact': False,
+            'requires_human_approval': False,
+            'metadata': {},
+        },
+    )
+    assert authorization.status_code == 200, authorization.text
+    approval_id = authorization.json()['approval_request_id']
+
+    with SessionLocal() as session:
+        approval = session.query(ApprovalRequest).filter_by(id=approval_id).one()
+        approval.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        session.commit()
+
+    response = client.post(
+        f'/api/v1/approvals/{approval_id}/approve',
+        headers={'Authorization': f'Bearer {reviewer_token}'},
+        json={'resolution_reason': 'Expired approval integration test.'},
+    )
+    assert response.status_code == 409, response.text
+
+    with SessionLocal() as session:
+        approval = session.query(ApprovalRequest).filter_by(id=approval_id).one()
+        assert approval.status == ApprovalStatus.EXPIRED
+        expiry_events = session.query(AuditEvent).filter_by(
+            approval_request_id=approval_id,
+            event_type=AuditEventType.APPROVAL_EXPIRED,
+        ).all()
+        assert len(expiry_events) == 1
 
 
 def test_cross_tenant_policy_and_approval_are_restricted():
