@@ -1,4 +1,5 @@
 import type { ApiError, TokenResponse } from '../types/auth'
+import type { Agent, AgentCreateInput, AgentListResponse, AgentUpdateInput, RiskAssessment, RiskEvaluationInput, SecurityScanInput, SecurityScanResult } from '../types/agents'
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 let accessToken: string | null = null
@@ -105,4 +106,18 @@ export const authApi = {
       sessionStore.clear()
     }
   },
+}
+
+export const agentsApi = {
+  list: (params: { offset?: number; limit?: number; status?: string; agent_type?: string; risk_level?: string } = {}) => {
+    const query = new URLSearchParams()
+    Object.entries(params).forEach(([key, value]) => { if (value) query.set(key, String(value)) })
+    return request<AgentListResponse>(`/api/v1/agents${query.size ? `?${query}` : ''}`)
+  },
+  get: (agentId: string) => request<Agent>(`/api/v1/agents/${agentId}`),
+  create: (payload: AgentCreateInput) => request<Agent>('/api/v1/agents', { method: 'POST', body: JSON.stringify(payload) }),
+  update: (agentId: string, payload: AgentUpdateInput) => request<Agent>(`/api/v1/agents/${agentId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  disable: (agentId: string) => request<Agent>(`/api/v1/agents/${agentId}/disable`, { method: 'POST' }),
+  evaluateRisk: (agentId: string, payload: RiskEvaluationInput) => request<RiskAssessment>(`/api/v1/agents/${agentId}/risk/evaluate`, { method: 'POST', body: JSON.stringify(payload) }),
+  scan: (agentId: string, payload: SecurityScanInput) => request<SecurityScanResult>(`/api/v1/agents/${agentId}/security/scan`, { method: 'POST', body: JSON.stringify(payload) }),
 }

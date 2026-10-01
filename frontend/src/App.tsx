@@ -4,8 +4,9 @@ import { useAuth } from './features/auth/AuthProvider'
 import { AppShell } from './layouts/AppShell'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
 import { ForbiddenPage, NotFoundPage, OverviewPage, SessionExpiredPage } from './pages/AppPages'
+import { AgentDetailPage, AgentsPage } from './pages/AgentsPages'
 
 function ProtectedRoute() { const { user, initializing, sessionExpired } = useAuth(); if (initializing) return <LoadingState />; if (sessionExpired) return <SessionExpiredPage />; return user ? <Outlet /> : <Navigate to="/login" replace /> }
 function PublicRoute() { const { user, initializing } = useAuth(); if (initializing) return <LoadingState />; return user ? <Navigate to="/" replace /> : <Outlet /> }
 
-export function App() { return <Routes><Route element={<PublicRoute />}><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /></Route><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/" element={<OverviewPage />} /><Route path="/forbidden" element={<ForbiddenPage />} /></Route></Route><Route path="*" element={<NotFoundPage />} /></Routes> }
+export function App() { return <Routes><Route element={<PublicRoute />}><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /></Route><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/" element={<OverviewPage />} /><Route path="/agents" element={<AgentsPage />} /><Route path="/agents/:agentId" element={<AgentDetailPage />} /><Route path="/forbidden" element={<ForbiddenPage />} /></Route></Route><Route path="*" element={<NotFoundPage />} /></Routes> }

@@ -2,8 +2,8 @@ import { Activity, Bot, FileKey2, Gauge, LogOut, Settings, ShieldCheck, SlidersH
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 
-const nav = [{ label: 'Overview', icon: Gauge, to: '/' }]
-const futureNav = [{ label: 'Agents', icon: Bot }, { label: 'Security events', icon: Activity }, { label: 'Policies', icon: SlidersHorizontal }, { label: 'Approvals', icon: FileKey2 }]
+const nav = [{ label: 'Overview', icon: Gauge, to: '/' }, { label: 'Agents', icon: Bot, to: '/agents' }]
+const futureNav = [{ label: 'Security events', icon: Activity }, { label: 'Policies', icon: SlidersHorizontal }, { label: 'Approvals', icon: FileKey2 }]
 
 export function AppShell() {
   const { user, signOut } = useAuth()
