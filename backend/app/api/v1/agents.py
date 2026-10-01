@@ -15,10 +15,12 @@ from app.repositories.agents import get_agent_by_id_for_org
 from app.schemas.agent import AgentCreate, AgentListResponse, AgentRead, AgentUpdate
 from app.schemas.policy import AuthorizationDecisionResponse
 from app.schemas.risk import RiskAssessmentResponse, RiskEvaluationRequest
+from app.schemas.security import SecurityScanRequest, SecurityScanResult
 from app.services.agents import create_agent, disable_agent, list_agents, update_agent
 from app.services.approvals import create_approval_request
 from app.services.policies import list_enabled_policies_for_org
 from app.services.risk import evaluate_risk
+from app.security.scan import scan_security_content
 
 router = APIRouter(prefix='/agents', tags=['agents'])
 MANAGEMENT_ROLES = (UserRole.OWNER, UserRole.ADMIN, UserRole.SECURITY_ANALYST)
@@ -100,6 +102,65 @@ def disable_agent_endpoint(
     if agent is None:
         raise _not_found()
     return agent
+
+
+@router.post('/{agent_id}/security/scan', response_model=SecurityScanResult)
+def scan_agent_security_endpoint(
+    agent_id: UUID,
+    request: SecurityScanRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> SecurityScanResult:
+    agent = get_agent_by_id_for_org(db, agent_id=agent_id, organization_id=current_user.organization_id)
+    if agent is None:
+        raise _not_found()
+
+    result = scan_security_content(request)
+    if result.prompt_injection_detected:
+        record_audit_event(
+            db,
+            organization_id=current_user.organization_id,
+            event_type=AuditEventType.PROMPT_INJECTION_DETECTED,
+            actor_type=ActorType.USER,
+            actor_user_id=current_user.id,
+            agent_id=agent.id,
+            correlation_id=str(uuid4()),
+            source='agents.security.scan',
+            summary='Prompt injection indicators detected in transient security scan content.',
+            details={
+                'agent_id': str(agent.id),
+                'content_type': request.content_type.value,
+                'source_context': request.source_context.value if request.source_context else None,
+                'finding_count': result.finding_count,
+                'categories': sorted({finding.category for finding in result.findings if finding.finding_type == 'PROMPT_INJECTION'}),
+                'rule_ids': sorted({finding.rule_id for finding in result.findings if finding.finding_type == 'PROMPT_INJECTION'}),
+                'highest_severity': result.highest_finding_severity,
+            },
+        )
+    if result.sensitive_data_detected:
+        record_audit_event(
+            db,
+            organization_id=current_user.organization_id,
+            event_type=AuditEventType.SENSITIVE_DATA_DETECTED,
+            actor_type=ActorType.USER,
+            actor_user_id=current_user.id,
+            agent_id=agent.id,
+            correlation_id=str(uuid4()),
+            source='agents.security.scan',
+            summary='Sensitive-data indicators detected in transient security scan content.',
+            details={
+                'agent_id': str(agent.id),
+                'content_type': request.content_type.value,
+                'source_context': request.source_context.value if request.source_context else None,
+                'finding_count': result.finding_count,
+                'categories': sorted({finding.category for finding in result.findings if finding.finding_type == 'SENSITIVE_DATA'}),
+                'rule_ids': sorted({finding.rule_id for finding in result.findings if finding.finding_type == 'SENSITIVE_DATA'}),
+                'highest_severity': result.highest_finding_severity,
+            },
+        )
+    if result.prompt_injection_detected or result.sensitive_data_detected:
+        db.commit()
+    return result
 
 
 @router.post('/{agent_id}/risk/evaluate', response_model=RiskAssessmentResponse)
