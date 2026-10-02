@@ -30,6 +30,24 @@ def test_production_rejects_wildcard_cors_with_credentials() -> None:
         )
 
 
+def test_production_rejects_wildcard_trusted_hosts() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            app_env='production',
+            jwt_secret_key='a' * 64,
+            cors_allowed_origins=['https://app.example.com'],
+            trusted_hosts=['*'],
+        )
+
+    with pytest.raises(ValidationError):
+        Settings(
+            app_env='production',
+            jwt_secret_key='a' * 64,
+            cors_allowed_origins=['https://app.example.com'],
+            trusted_hosts=['*.example.com'],
+        )
+
+
 def test_request_id_header_is_added() -> None:
     client = TestClient(app)
     response = client.get('/health')

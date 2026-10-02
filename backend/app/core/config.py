@@ -95,8 +95,13 @@ class Settings(BaseSettings):
             raise ValueError('Production CORS cannot allow wildcard origins when credentials are enabled.')
         if '*' in self.cors_allowed_origins:
             raise ValueError('Production CORS cannot use a wildcard origin.')
-        if not self.trusted_hosts or any(not host.strip() for host in self.trusted_hosts):
+        if not self.trusted_hosts:
             raise ValueError('Production must define explicit trusted hosts.')
+        sanitized_hosts = [host.strip() for host in self.trusted_hosts]
+        if any(not host or '*' in host for host in sanitized_hosts):
+            raise ValueError('Production trusted hosts must be explicit and cannot contain wildcards.')
+        if any(host.startswith('*.') for host in sanitized_hosts):
+            raise ValueError('Production trusted hosts must not use wildcard subdomain patterns.')
         if self.max_request_size_bytes <= 0:
             raise ValueError('max_request_size_bytes must be positive.')
         if self.rate_limit_requests_per_minute <= 0:
