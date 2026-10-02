@@ -2,6 +2,7 @@ import type { ApiError, TokenResponse } from '../types/auth'
 import type { Agent, AgentCreateInput, AgentListResponse, AgentUpdateInput, RiskAssessment, RiskEvaluationInput, SecurityScanInput, SecurityScanResult } from '../types/agents'
 import type { ApprovalListResponse, ApprovalRequest, ApprovalResolutionRequest } from '../types/approvals'
 import type { AuditEvent, AuditEventListResponse } from '../types/audit'
+import type { Organization, OrganizationMember, OrganizationMembersResponse } from '../types/organizations'
 import type { Policy, PolicyCreateInput, PolicyListResponse, PolicyUpdateInput } from '../types/policies'
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
@@ -150,6 +151,20 @@ export const approvalsApi = {
   get: (approvalId: string) => request<ApprovalRequest>(`/api/v1/approvals/${approvalId}`),
   approve: (approvalId: string, resolutionReason?: string) => request<ApprovalRequest>(`/api/v1/approvals/${approvalId}/approve`, { method: 'POST', body: JSON.stringify({ resolution_reason: resolutionReason || undefined }) }),
   reject: (approvalId: string, resolutionReason?: string) => request<ApprovalRequest>(`/api/v1/approvals/${approvalId}/reject`, { method: 'POST', body: JSON.stringify({ resolution_reason: resolutionReason || undefined }) }),
+}
+
+export const orgApi = {
+  getCurrent: () => request<Organization>('/api/v1/organizations/me'),
+  updateCurrent: (payload: { name?: string }) => request<Organization>('/api/v1/organizations/me', { method: 'PATCH', body: JSON.stringify(payload) }),
+  listMembers: (params: { offset?: number; limit?: number } = {}) => {
+    const query = new URLSearchParams()
+    if (params.offset !== undefined) query.set('offset', String(params.offset))
+    if (params.limit !== undefined) query.set('limit', String(params.limit))
+    return request<OrganizationMembersResponse>(`/api/v1/organizations/users${query.size ? `?${query}` : ''}`)
+  },
+  getMember: (memberId: string) => request<OrganizationMember>(`/api/v1/organizations/users/${memberId}`),
+  updateMemberRole: (memberId: string, payload: { role: string }) => request<OrganizationMember>(`/api/v1/organizations/users/${memberId}/role`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  updateMemberStatus: (memberId: string, payload: { status: string }) => request<OrganizationMember>(`/api/v1/organizations/users/${memberId}/status`, { method: 'PATCH', body: JSON.stringify(payload) }),
 }
 
 export const auditsApi = {

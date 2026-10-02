@@ -88,6 +88,9 @@ def _category_for_event_type(event_type: AuditEventType) -> AuditEventCategory:
         AuditEventType.SENSITIVE_DATA_DETECTED: AuditEventCategory.SECURITY,
         AuditEventType.POLICY_VIOLATION: AuditEventCategory.SECURITY,
         AuditEventType.ANOMALOUS_AGENT_BEHAVIOR: AuditEventCategory.SECURITY,
+        AuditEventType.ORGANIZATION_UPDATED: AuditEventCategory.ADMINISTRATION,
+        AuditEventType.USER_ROLE_CHANGED: AuditEventCategory.ADMINISTRATION,
+        AuditEventType.USER_STATUS_CHANGED: AuditEventCategory.ADMINISTRATION,
     }
     return mapping.get(event_type, AuditEventCategory.SECURITY)
 
@@ -112,6 +115,9 @@ def _severity_for_event_type(event_type: AuditEventType) -> EventSeverity:
         AuditEventType.SENSITIVE_DATA_DETECTED: EventSeverity.HIGH,
         AuditEventType.POLICY_VIOLATION: EventSeverity.CRITICAL,
         AuditEventType.ANOMALOUS_AGENT_BEHAVIOR: EventSeverity.CRITICAL,
+        AuditEventType.ORGANIZATION_UPDATED: EventSeverity.INFO,
+        AuditEventType.USER_ROLE_CHANGED: EventSeverity.WARNING,
+        AuditEventType.USER_STATUS_CHANGED: EventSeverity.WARNING,
     }
     return mapping.get(event_type, EventSeverity.INFO)
 

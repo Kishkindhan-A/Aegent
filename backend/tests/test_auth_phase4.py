@@ -175,7 +175,7 @@ def test_role_downgrade_invalidates_old_token():
         session.commit()
 
     allowed = client.get('/api/v1/auth/health/roles', headers={'Authorization': f'Bearer {token}'})
-    assert allowed.status_code == 401
+    assert allowed.status_code == 403
 
 
 def test_schema_does_not_expose_password_hash_in_auth_response():

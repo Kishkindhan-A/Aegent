@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import OrganizationStatus
+from app.models.enums import OrganizationStatus, UserRole, UserStatus
 
 
 class OrganizationBase(BaseModel):
@@ -26,6 +26,26 @@ class OrganizationUpdate(BaseModel):
     status: OrganizationStatus | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class OrganizationSettingsUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    slug: str | None = Field(default=None, min_length=1, max_length=120)
+    status: OrganizationStatus | None = None
+
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+
+
+class OrganizationMemberRoleUpdate(BaseModel):
+    role: UserRole
+
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+
+
+class OrganizationMemberStatusUpdate(BaseModel):
+    status: UserStatus
+
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
 
 
 class OrganizationRead(OrganizationBase):

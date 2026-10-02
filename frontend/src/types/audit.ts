@@ -17,8 +17,11 @@ export type AuditEventType =
   | 'SENSITIVE_DATA_DETECTED'
   | 'POLICY_VIOLATION'
   | 'ANOMALOUS_AGENT_BEHAVIOR'
+  | 'ORGANIZATION_UPDATED'
+  | 'USER_ROLE_CHANGED'
+  | 'USER_STATUS_CHANGED'
 
-export type AuditEventCategory = 'AUTHENTICATION' | 'AGENT' | 'RISK' | 'POLICY' | 'AUTHORIZATION' | 'APPROVAL' | 'SECURITY'
+export type AuditEventCategory = 'AUTHENTICATION' | 'AGENT' | 'RISK' | 'POLICY' | 'AUTHORIZATION' | 'APPROVAL' | 'SECURITY' | 'ADMINISTRATION'
 export type EventSeverity = 'INFO' | 'WARNING' | 'HIGH' | 'CRITICAL'
 export type ActorType = 'USER' | 'AGENT' | 'SYSTEM'
 

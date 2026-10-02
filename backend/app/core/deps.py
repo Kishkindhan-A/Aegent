@@ -50,7 +50,7 @@ async def get_current_user(
 
     if UserRole(payload.get('role', '')) != user.role:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail='Token role is invalid.',
         )
 

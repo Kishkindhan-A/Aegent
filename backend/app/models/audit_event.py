@@ -33,6 +33,9 @@ def _category_for_event_type(event_type: AuditEventType) -> AuditEventCategory:
         AuditEventType.SENSITIVE_DATA_DETECTED: AuditEventCategory.SECURITY,
         AuditEventType.POLICY_VIOLATION: AuditEventCategory.SECURITY,
         AuditEventType.ANOMALOUS_AGENT_BEHAVIOR: AuditEventCategory.SECURITY,
+        AuditEventType.ORGANIZATION_UPDATED: AuditEventCategory.ADMINISTRATION,
+        AuditEventType.USER_ROLE_CHANGED: AuditEventCategory.ADMINISTRATION,
+        AuditEventType.USER_STATUS_CHANGED: AuditEventCategory.ADMINISTRATION,
     }
     return mapping.get(event_type, AuditEventCategory.SECURITY)
 
