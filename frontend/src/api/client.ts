@@ -1,6 +1,7 @@
 import type { ApiError, TokenResponse } from '../types/auth'
 import type { Agent, AgentCreateInput, AgentListResponse, AgentUpdateInput, RiskAssessment, RiskEvaluationInput, SecurityScanInput, SecurityScanResult } from '../types/agents'
 import type { ApprovalListResponse, ApprovalRequest, ApprovalResolutionRequest } from '../types/approvals'
+import type { AuditEvent, AuditEventListResponse } from '../types/audit'
 import type { Policy, PolicyCreateInput, PolicyListResponse, PolicyUpdateInput } from '../types/policies'
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
@@ -149,4 +150,37 @@ export const approvalsApi = {
   get: (approvalId: string) => request<ApprovalRequest>(`/api/v1/approvals/${approvalId}`),
   approve: (approvalId: string, resolutionReason?: string) => request<ApprovalRequest>(`/api/v1/approvals/${approvalId}/approve`, { method: 'POST', body: JSON.stringify({ resolution_reason: resolutionReason || undefined }) }),
   reject: (approvalId: string, resolutionReason?: string) => request<ApprovalRequest>(`/api/v1/approvals/${approvalId}/reject`, { method: 'POST', body: JSON.stringify({ resolution_reason: resolutionReason || undefined }) }),
+}
+
+export const auditsApi = {
+  list: (params: {
+    event_type?: string
+    category?: string
+    severity?: string
+    actor_user_id?: string
+    agent_id?: string
+    policy_id?: string
+    approval_request_id?: string
+    correlation_id?: string
+    created_after?: string
+    created_before?: string
+    offset?: number
+    limit?: number
+  } = {}) => {
+    const query = new URLSearchParams()
+    if (params.event_type) query.set('event_type', params.event_type)
+    if (params.category) query.set('category', params.category)
+    if (params.severity) query.set('severity', params.severity)
+    if (params.actor_user_id) query.set('actor_user_id', params.actor_user_id)
+    if (params.agent_id) query.set('agent_id', params.agent_id)
+    if (params.policy_id) query.set('policy_id', params.policy_id)
+    if (params.approval_request_id) query.set('approval_request_id', params.approval_request_id)
+    if (params.correlation_id) query.set('correlation_id', params.correlation_id)
+    if (params.created_after) query.set('created_after', params.created_after)
+    if (params.created_before) query.set('created_before', params.created_before)
+    if (params.offset !== undefined) query.set('offset', String(params.offset))
+    if (params.limit !== undefined) query.set('limit', String(params.limit))
+    return request<AuditEventListResponse>(`/api/v1/audit/events${query.size ? `?${query}` : ''}`)
+  },
+  get: (eventId: string) => request<AuditEvent>(`/api/v1/audit/events/${eventId}`),
 }
